@@ -1,14 +1,19 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, {useEffect, useState, useRef, useContext} from 'react';
 import EventList from '../components/EventList';
 import EventSkeleton from '../components/EventSkeleton';
 import { EVENT_URL } from '../config/host-config';
 import {getUserToken} from "../config/auth";
 import {useRouteLoaderData} from "react-router-dom";
+import EventContext from "../components/context/event-context";
 
 // npm install loadsh
 // import { debounce, throttle } from 'lodash';
 
 const Events = () => {
+
+  const { changeTotalEventCount } = useContext(EventContext);
+
+
 
   // loader가 리턴한 데이터 받아오기
   // const eventList = useLoaderData();
@@ -51,6 +56,8 @@ const Events = () => {
       headers: { 'Authorization': `Bearer ` + token }
     });
     const { events: loadedEvents, totalCount } = await response.json();
+    // 전역 상태값 변경
+    changeTotalEventCount(totalCount)
 
     console.log('loaded: ', { loadedEvents, totalCount, len: loadedEvents.length });
 
@@ -153,6 +160,7 @@ const Events = () => {
     </>
   );
 };
+
 
 export default Events;
 
