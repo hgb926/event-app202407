@@ -8,6 +8,7 @@ const EventList = ({ eventList }) => {
   // const eventList = useLoaderData();
 
   const {events, list, item, content} = styles;
+    console.log(eventList)
 
   return (
     <div className={events}>

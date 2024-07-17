@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import EventList from '../components/EventList';
 import EventSkeleton from '../components/EventSkeleton';
 import { EVENT_URL } from '../config/host-config';
+import {getUserToken} from "../config/auth";
+import {useRouteLoaderData} from "react-router-dom";
 
 // npm install loadsh
 // import { debounce, throttle } from 'lodash';
@@ -11,6 +13,8 @@ const Events = () => {
   // loader가 리턴한 데이터 받아오기
   // const eventList = useLoaderData();
   // console.log(eventList);
+
+  const {token} = useRouteLoaderData('user-data');
 
   // 이벤트 목록 아래 박스 참조
   const skeletonBoxRef = useRef();
@@ -43,7 +47,9 @@ const Events = () => {
     console.log('start loading...');
     setLoading(true);
 
-    const response = await fetch(`${EVENT_URL}/page/${currentPage}?sort=date`);
+    const response = await fetch(`${EVENT_URL}/page/${currentPage}?sort=date`,{
+      headers: { 'Authorization': `Bearer ` + token }
+    });
     const { events: loadedEvents, totalCount } = await response.json();
 
     console.log('loaded: ', { loadedEvents, totalCount, len: loadedEvents.length });
@@ -51,8 +57,10 @@ const Events = () => {
     // console.log('loaded: ', loadedEvents);
 
     const updatedEvents = [...events, ...loadedEvents ];
-    setEvents(updatedEvents);
-    setLoading(false);
+
+    setTimeout(() => {
+      setLoading(false);
+      setEvents(updatedEvents);
     // 로딩이 끝나면 페이지번호를 1 늘려놓는다.
     setCurrentPage(prevPage => prevPage + 1);
     console.log('end loading!!');
@@ -66,6 +74,8 @@ const Events = () => {
     // skeleton 개수 구하기 -> 남은 개수가 4보다 크면 4로 세팅 4보다 작으면 그 수로 세팅
     const skeletonCnt = Math.min(4, restEventsCount);
     setSkeletonCount(skeletonCnt);
+    }, 500);
+
 
   };
 
