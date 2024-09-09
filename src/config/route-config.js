@@ -15,6 +15,7 @@ import { loginAction } from "../components/auth/LoginForm";
 import {authCheckLoader, userDataLoader} from "./auth";
 import {logoutAction} from "../pages/Logout";
 import EventProvider from "../components/context/EventProvider"
+import VoiceChat from "../pages/VoiceChat";
 
 // 라우터 설정
 
@@ -65,6 +66,10 @@ const homeRouter = [
     {
         path: 'logout',
         action: logoutAction // url이 /logout 일때 발동
+    },
+    {
+        path: "/voice-chat",
+        element: <VoiceChat/>
     }
 ];
 
