@@ -1,33 +1,43 @@
 import React, { useEffect, useRef, useState } from 'react';
-import io from 'socket.io-client';
 
 const VoiceChat = () => {
     const [socket, setSocket] = useState(null);
+    const [isStart, setIsStart] = useState(false)
+    const [message, setMessage] = useState("Start Call")
     const localStreamRef = useRef(null);
     const remoteStreamRef = useRef(null);
     const peerConnectionRef = useRef(null);
 
+
+    // WebSocket 연결 설정
     useEffect(() => {
-        // Signaling 서버와 WebSocket 연결
-        const newSocket = new WebSocket('ws://localhost:8080/api/signal');
+        const newSocket = new WebSocket('ws://localhost:8585/api/signal');
+
+        newSocket.onopen = () => {
+            console.log("[WebSocket] Connection opened.");
+        };
+
+        newSocket.onclose = () => {
+            console.log("[WebSocket] Connection closed.");
+        };
+
+        newSocket.onerror = (error) => {
+            console.error("[WebSocket] Error:", error);
+        };
+
+        newSocket.onmessage = (message) => {
+            console.log("[WebSocket] Message received:", message.data);
+        };
+
         setSocket(newSocket);
 
-        // 로컬 음성 스트림 가져오기
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                localStreamRef.current.srcObject = stream;
-                if (peerConnectionRef.current) {
-                    stream.getTracks().forEach(track => peerConnectionRef.current.addTrack(track, stream));
-                }
-            });
-
-        return () => newSocket.close();
+        return () => {
+            newSocket.close();
+        };
     }, []);
 
+    // 사용자 오디오 스트림 가져오기 및 PeerConnection 설정
     useEffect(() => {
-        if (!socket) return;
-
-        // WebRTC 설정
         const configuration = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -37,37 +47,60 @@ const VoiceChat = () => {
         const peerConnection = new RTCPeerConnection(configuration);
         peerConnectionRef.current = peerConnection;
 
-        socket.onmessage = async (message) => {
-            const data = JSON.parse(message.data);
-            if (data.offer) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.send(JSON.stringify({ answer }));
-            } else if (data.answer) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            } else if (data.iceCandidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.iceCandidate));
-            }
-        };
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                console.log("[Media] Local stream obtained.");
+                localStreamRef.current.srcObject = stream;
+                stream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, stream);
+                    console.log("[PeerConnection] Track added.");
+                });
+            })
+            .catch(error => {
+                console.error("[Media] Error accessing user media:", error);
+            });
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                socket.send(JSON.stringify({ iceCandidate: event.candidate }));
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    console.log("[ICE] ICE candidate:", event.candidate);
+                    socket.send(JSON.stringify({ iceCandidate: event.candidate }));
+                } else {
+                    console.error("[ICE] WebSocket not open, candidate not sent.");
+                }
             }
         };
 
         peerConnection.ontrack = (event) => {
+            console.log("[PeerConnection] Remote track received.");
             remoteStreamRef.current.srcObject = event.streams[0];
         };
 
-        return () => peerConnection.close();
+        return () => {
+            peerConnection.close();
+            console.log("[PeerConnection] Closed.");
+        };
     }, [socket]);
 
+    // Offer 생성 및 전송
     const createOffer = async () => {
-        const offer = await peerConnectionRef.current.createOffer();
-        await peerConnectionRef.current.setLocalDescription(offer);
-        socket.send(JSON.stringify({ offer }));
+        if (!peerConnectionRef.current) return;
+
+        try {
+            const offer = await peerConnectionRef.current.createOffer();
+            console.log("[Offer] Offer created.");
+            await peerConnectionRef.current.setLocalDescription(offer);
+            console.log("[Offer] Local description set.");
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ offer }));
+                console.log("[WebSocket] Offer sent.");
+            } else {
+                console.error("[WebSocket] WebSocket not open, offer not sent.");
+            }
+        } catch (error) {
+            console.error("[Offer] Error creating or sending offer:", error);
+        }
     };
 
     return (
@@ -75,7 +108,7 @@ const VoiceChat = () => {
             <h1>1:N Voice Chat</h1>
             <audio ref={localStreamRef} autoPlay muted />
             <audio ref={remoteStreamRef} autoPlay />
-            <button onClick={createOffer}>Start Call</button>
+            <button onClick={createOffer}>{message}</button>
         </div>
     );
 };
