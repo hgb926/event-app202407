@@ -1,0 +1,7 @@
+services:
+  react-app: # 이미지랑 컨테이너 이름
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
